@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blood Donation Camp Manager</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/modern-normalize/2.0.0/modern-normalize.min.css">
+  <style>
+    body { font-family: Arial, sans-serif; background: #f8f9fa; margin: 0; }
+    header { background: #b71c1c; color: #fff; padding: 1rem 2rem; }
+    .container { max-width: 1200px; margin: 2rem auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 2rem; }
+    h1, h2 { margin-top: 0; }
+    .dashboard { display: flex; gap: 2rem; flex-wrap: wrap; margin-bottom: 2rem; }
+    .card { flex: 1 1 200px; background: #f1f1f1; border-radius: 6px; padding: 1rem; text-align: center; box-shadow: 0 1px 4px #0001; }
+    .search-bar { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
+    .search-bar input { flex: 1; padding: 0.5rem; border-radius: 4px; border: 1px solid #ccc; }
+    .search-bar button { padding: 0.5rem 1rem; border: none; background: #b71c1c; color: #fff; border-radius: 4px; cursor: pointer; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    th, td { padding: 0.5rem; border: 1px solid #ddd; }
+    th { background: #eee; }
+    .status-ongoing { color: #b71c1c; }
+    .status-accepted { color: #388e3c; }
+    .status-rejected { color: #d84315; }
+    .gender-m { color: #1976d2; }
+    .gender-f { color: #c2185b; }
+    .actions button { margin-right: 0.5rem; }
+    .hourly-chart { margin: 2rem 0; }
+    @media (max-width: 800px) { .dashboard { flex-direction: column; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Blood Donation Camp Manager</h1>
+    <p>Efficient, duplicate-free donor management for your camp</p>
+  </header>
+  <div class="container">
+    <section class="dashboard" id="dashboard">
+      <!-- Dashboard cards will be rendered here -->
+    </section>
+    <section class="search-bar">
+      <input type="text" id="searchInput" placeholder="Search by Name or Mobile Number...">
+      <button onclick="searchDonor()">Search</button>
+      <button onclick="resetSearch()">Reset</button>
+      <button onclick="showAddDonorForm()">Add New Donor</button>
+      <button onclick="exportCSV()">Export CSV</button>
+    </section>
+    <section id="donorTableSection">
+      <table id="donorTable">
+        <thead></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+    <section class="hourly-chart">
+      <canvas id="hourlyChart" width="800" height="300"></canvas>
+    </section>
+    <section id="addEditFormSection" style="display:none;"></section>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0"></script>
+  <script>
+    // CONFIGURATION
+    const GOOGLE_SHEET_API_URL = 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL'; // <-- Set this after deploying Apps Script
+    const SHEET_HEADERS = [
+      'id','First Name','Middle Name','Last Name','Mobile No.','Address','Upasna Kendra','Group','New/Old Shraddhavan','Age','Date of Birth','Gender','Status','Reasons for rejection','Camp Date'
+    ];
+    let donors = [];
+    let filteredDonors = [];
+    let editingDonor = null;
+
+    // Fetch donors from Google Sheets API
+    async function fetchDonors() {
+      const res = await fetch(GOOGLE_SHEET_API_URL);
+      donors = await res.json();
+      filteredDonors = donors;
+      renderDashboard();
+      renderTable();
+      renderHourlyChart();
+    }
+
+    // Render dashboard cards
+    function renderDashboard() {
+      const statusCounts = { Ongoing: 0, Accepted: 0, Rejected: 0 };
+      const genderCounts = { Ongoing: {M:0,F:0}, Accepted: {M:0,F:0}, Rejected: {M:0,F:0} };
+      donors.forEach(d => {
+        const status = (d.Status||'Ongoing').trim();
+        const gender = (d.Gender||'').toUpperCase();
+        if (statusCounts[status] !== undefined) statusCounts[status]++;
+        if (genderCounts[status] && genderCounts[status][gender] !== undefined) genderCounts[status][gender]++;
+      });
+      const total = donors.length;
+      document.getElementById('dashboard').innerHTML = `
+        <div class="card"><h2>Ongoing</h2><p>${statusCounts.Ongoing}</p><p>M: ${genderCounts.Ongoing.M} | F: ${genderCounts.Ongoing.F}</p></div>
+        <div class="card"><h2>Accepted</h2><p>${statusCounts.Accepted}</p><p>M: ${genderCounts.Accepted.M} | F: ${genderCounts.Accepted.F}</p></div>
+        <div class="card"><h2>Rejected</h2><p>${statusCounts.Rejected}</p><p>M: ${genderCounts.Rejected.M} | F: ${genderCounts.Rejected.F}</p></div>
+        <div class="card"><h2>Total Donors</h2><p>${total}</p></div>
+      `;
+    }
+
+    // Render donor table
+    function renderTable() {
+      const thead = document.querySelector('#donorTable thead');
+      const tbody = document.querySelector('#donorTable tbody');
+      thead.innerHTML = '<tr>' + SHEET_HEADERS.map(h => `<th>${h}</th>`).join('') + '<th>Actions</th></tr>';
+      tbody.innerHTML = filteredDonors.map(donor => {
+        return '<tr>' + SHEET_HEADERS.map(h => `<td>${donor[h]||''}</td>`).join('') +
+          `<td class="actions">
+            <button onclick="editDonor('${donor.id}')">Edit</button>
+          </td></tr>`;
+      }).join('');
+    }
+
+    // Fuzzy search donors
+    function searchDonor() {
+      const query = document.getElementById('searchInput').value.trim();
+      if (!query) { filteredDonors = donors; renderTable(); return; }
+      const fuse = new Fuse(donors, {
+        keys: ['First Name', 'Last Name', 'Mobile No.'],
+        threshold: 0.3
+      });
+      filteredDonors = fuse.search(query).map(r => r.item);
+      renderTable();
+    }
+    function resetSearch() {
+      document.getElementById('searchInput').value = '';
+      filteredDonors = donors;
+      renderTable();
+    }
+
+    // Add/Edit Donor
+    function showAddDonorForm() {
+      editingDonor = null;
+      renderAddEditForm();
+    }
+    function editDonor(id) {
+      editingDonor = donors.find(d => d.id == id);
+      renderAddEditForm();
+    }
+    function renderAddEditForm() {
+      const donor = editingDonor || {};
+      let formHtml = '<form id="donorForm" onsubmit="submitDonor(event)">';
+      SHEET_HEADERS.forEach(h => {
+        if (h === 'id') {
+          formHtml += editingDonor ? `<input type="hidden" name="id" value="${donor.id}">` : '';
+        } else if (h === 'Status') {
+          formHtml += `<label>${h}: <select name="Status">
+            <option value="Ongoing"${donor.Status==='Ongoing'?' selected':''}>Ongoing</option>
+            <option value="Accepted"${donor.Status==='Accepted'?' selected':''}>Accepted</option>
+            <option value="Rejected"${donor.Status==='Rejected'?' selected':''}>Rejected</option>
+          </select></label><br>`;
+        } else if (h === 'Gender') {
+          formHtml += `<label>${h}: <select name="Gender">
+            <option value="M"${donor.Gender==='M'?' selected':''}>M</option>
+            <option value="F"${donor.Gender==='F'?' selected':''}>F</option>
+          </select></label><br>`;
+        } else if (h === 'Camp Date') {
+          formHtml += `<label>${h}: <input type="date" name="Camp Date" value="${donor['Camp Date']||''}"></label><br>`;
+        } else {
+          formHtml += `<label>${h}: <input type="text" name="${h}" value="${donor[h]||''}"></label><br>`;
+        }
+      });
+      formHtml += '<button type="submit">' + (editingDonor ? 'Update' : 'Add') + ' Donor</button> ';
+      formHtml += '<button type="button" onclick="hideAddEditForm()">Cancel</button>';
+      formHtml += '</form>';
+      document.getElementById('addEditFormSection').innerHTML = formHtml;
+      document.getElementById('addEditFormSection').style.display = 'block';
+    }
+    function hideAddEditForm() {
+      document.getElementById('addEditFormSection').style.display = 'none';
+    }
+    async function submitDonor(e) {
+      e.preventDefault();
+      const form = e.target;
+      const donor = {};
+      SHEET_HEADERS.forEach(h => {
+        if (h === 'id' && !editingDonor) {
+          donor.id = Date.now().toString();
+        } else {
+          donor[h] = form[h] ? form[h].value : '';
+        }
+      });
+      const action = editingDonor ? 'update' : 'add';
+      await fetch(GOOGLE_SHEET_API_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action, donor }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+      hideAddEditForm();
+      fetchDonors();
+    }
+
+    // Export CSV
+    function exportCSV() {
+      let csv = SHEET_HEADERS.join(',') + '\n';
+      donors.forEach(d => {
+        csv += SHEET_HEADERS.map(h => '"' + (d[h]||'') + '"').join(',') + '\n';
+      });
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'donors.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // Hourly chart
+    function renderHourlyChart() {
+      const hours = Array.from({length: 9}, (_,i) => 9+i); // 9am to 5pm
+      const hourCounts = hours.map(h => 0);
+      donors.forEach(d => {
+        if (d['Camp Date'] && d['id']) {
+          const idTime = new Date(parseInt(d.id));
+          const hour = idTime.getHours();
+          const idx = hours.indexOf(hour);
+          if (idx >= 0) hourCounts[idx]++;
+        }
+      });
+      const ctx = document.getElementById('hourlyChart').getContext('2d');
+      if (window.hourlyChartObj) window.hourlyChartObj.destroy();
+      window.hourlyChartObj = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: hours.map(h => h+':00'),
+          datasets: [{ label: 'Donors per Hour', data: hourCounts, backgroundColor: '#b71c1c' }]
+        },
+        options: { responsive: true, plugins: { legend: { display: false } } }
+      });
+    }
+
+    // Initial load
+    fetchDonors();
+  </script>
+</body>
+</html>

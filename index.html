@@ -368,6 +368,12 @@ async function loadFromSheet() {
  * App properties: firstName, mobile, bloodGroup, etc.
  */
 function normalizeSheetDonor(sheetDonor) {
+  // Keep status as-is, including blank/empty (means donor did not attend)
+  const rawStatus = sheetDonor['Status'];
+  const status = (rawStatus === null || rawStatus === undefined || String(rawStatus).trim() === '') 
+    ? '' 
+    : String(rawStatus).trim();
+  
   return {
     id: sheetDonor.id || sheetDonor.ID || 0,
     firstName: sheetDonor['First Name'] || '',
@@ -381,7 +387,7 @@ function normalizeSheetDonor(sheetDonor) {
     age: sheetDonor['Age'] || '',
     dob: sheetDonor['Date of Birth'] || '',
     gender: sheetDonor['Gender'] || '',
-    status: sheetDonor['Status'] || 'Ongoing',
+    status: status,
     rejectionReason: sheetDonor['Reasons for rejection'] || '',
     addedAt: sheetDonor.addedAt ? new Date(sheetDonor.addedAt) : new Date()
   };
@@ -510,8 +516,11 @@ function fullName(d) {
 }
 
 function statusBadge(s) {
-  const safe = s || 'Ongoing';
-  return `<span class="status-badge badge-${safe}">${safe}</span>`;
+  // If status is empty/blank, show "—" (donor did not attend)
+  if (!s || String(s).trim() === '') {
+    return `<span class="status-badge" style="background:#f1f5f9;color:#94a3b8">—</span>`;
+  }
+  return `<span class="status-badge badge-${s}">${s}</span>`;
 }
 
 function escH(s) {

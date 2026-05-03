@@ -864,19 +864,10 @@ function renderRecords() {
     if (filterBG !== 'All' && d.bloodGroup !== filterBG) return false;
     if (tableSearch) {
       const q = norm(tableSearch);
-      // Search all fields for the query
-      return Object.values(d).some(val => norm(val).includes(q));
+      return norm(fullName(d)).includes(q) || norm(d.mobile||'').includes(q) || norm(d.upasnaKendra||'').includes(q);
     }
     return true;
   });
-
-  // Dynamically get all columns from thead (SHEET_COLUMNS or FIELD_DEFS)
-  // Use SHEET_COLUMNS if available, else fallback to FIELD_DEFS
-  const columns = (typeof SHEET_COLUMNS !== 'undefined' && SHEET_COLUMNS.length) ? SHEET_COLUMNS : Object.keys(filtered[0] || {});
-
-  // Responsive table styling for many columns
-  const tableStyle = `display:block;overflow-x:auto;width:100%`;
-
   return `
   <div class="section-header">
     <div class="section-title">&#128196; All Records
@@ -889,7 +880,7 @@ function renderRecords() {
   </div>
   <div class="card">
     <div class="filter-row">
-      <input type="text" placeholder="Search any field..." value="${escH(tableSearch)}" oninput="tableSearch=this.value;render()" style="width:210px"/>
+      <input type="text" placeholder="Search name / phone / kendra..." value="${escH(tableSearch)}" oninput="tableSearch=this.value;render()" style="width:210px"/>
       <select onchange="filterStatus=this.value;render()">
         <option ${filterStatus==='All'?'selected':''}>All</option>
         ${STATUSES.map(s=>`<option ${filterStatus===s?'selected':''}>${s}</option>`).join('')}
@@ -904,20 +895,32 @@ function renderRecords() {
         ${BLOOD_GROUPS.map(bg=>`<option ${filterBG===bg?'selected':''}>${bg}</option>`).join('')}
       </select>
     </div>
-    <div class="table-wrap" style="${tableStyle}">
-      <table style="min-width:1200px;width:max-content">
+    <div class="table-wrap">
+      <table>
         <thead>
           <tr>
-            <th>#</th>
-            ${columns.map(col => `<th>${escH(col)}</th>`).join('')}
-            <th>Action</th>
+            <th>#</th><th>First Name</th><th>Middle Name</th><th>Last Name</th><th>Mobile No.</th><th>Address</th><th>Upasna Kendra</th><th>Group</th>
+            <th>New/Old Shraddhavan</th><th>Age</th><th>Date of Birth</th><th>Gender</th><th>Status</th>
+            <th>Reasons for rejection</th><th>Action</th>
           </tr>
         </thead>
         <tbody>
-          ${!filtered.length ? `<tr><td colspan="${columns.length+2}" style="text-align:center;padding:1.5rem;color:var(--slate-mid)">No records found</td></tr>` :
+          ${!filtered.length ? `<tr><td colspan="15" style="text-align:center;padding:1.5rem;color:var(--slate-mid)">No records found</td></tr>` :
           filtered.map((d,i) => `<tr>
             <td style="color:var(--slate-mid);font-size:0.72rem">${i+1}</td>
-            ${columns.map(col => `<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(d[col]||'—')}</td>`).join('')}
+            <td>${escH(d.firstName||'—')}</td>
+            <td>${escH(d.middleName||'—')}</td>
+            <td>${escH(d.lastName||'—')}</td>
+            <td>${escH(d.mobile||'—')}</td>
+            <td>${escH(d.address||'—')}</td>
+            <td>${escH(d.upasnaKendra||'—')}</td>
+            <td>${escH(d.bloodGroup||'—')}</td>
+            <td>${escH(d.newOld||'—')}</td>
+            <td>${escH(d.age||'—')}</td>
+            <td>${escH(d.dob||'—')}</td>
+            <td>${escH(d.gender||'—')}</td>
+            <td>${statusBadge(d.status||'Ongoing')}</td>
+            <td>${escH(d.rejectionReason||'—')}</td>
             <td><button class="btn btn-outline-red btn-xs" onclick="quickUpdate(${d.id})">Update</button></td>
           </tr>`).join('')}
         </tbody>

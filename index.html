@@ -57,7 +57,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#f1f5f9;color:var(--
 .stat-num{font-size:2rem;font-weight:800;line-height:1}
 .stat-label{font-size:0.67rem;font-weight:700;margin-top:4px;text-transform:uppercase;letter-spacing:0.05em}
 .stat-card.total{background:linear-gradient(135deg,#fef2f2,#fee2e2);border-color:#fca5a5}.stat-card.total .stat-num{color:#b91c1c}.stat-card.total .stat-label{color:#dc2626}
-.stat-card.confirmed{background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-color:#86efac}.stat-card.confirmed .stat-num{color:#15803d}.stat-card.confirmed .stat-label{color:#16a34a}
+.stat-card.Accepted{background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-color:#86efac}.stat-card.Accepted .stat-num{color:#15803d}.stat-card.Accepted .stat-label{color:#16a34a}
 .stat-card.rejected{background:linear-gradient(135deg,#fffbeb,#fef3c7);border-color:#fcd34d}.stat-card.rejected .stat-num{color:#b45309}.stat-card.rejected .stat-label{color:#d97706}
 .stat-card.ongoing{background:linear-gradient(135deg,#eff6ff,#dbeafe);border-color:#93c5fd}.stat-card.ongoing .stat-num{color:#1d4ed8}.stat-card.ongoing .stat-label{color:#2563eb}
 .stat-card.male{background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border-color:#7dd3fc}.stat-card.male .stat-num{color:#0369a1}.stat-card.male .stat-label{color:#0284c7}
@@ -97,7 +97,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#f1f5f9;color:var(--
 .result-name{font-weight:700;font-size:0.88rem;color:var(--text)}
 .result-meta{font-size:0.74rem;color:var(--slate-mid);margin-top:2px}
 .status-badge{font-size:0.68rem;padding:3px 9px;border-radius:20px;font-weight:700;letter-spacing:0.02em;white-space:nowrap}
-.badge-Confirmed{background:#dcfce7;color:#166534}
+.badge-Accepted{background:#dcfce7;color:#166534}
 .badge-Rejected{background:#fef3c7;color:#92400e}
 .badge-Ongoing{background:#dbeafe;color:#1e3a8a}
 .no-match-box{padding:14px;text-align:center;color:var(--slate-mid);font-size:0.85rem}
@@ -274,7 +274,7 @@ const SHEET_COLUMNS = [
 ];
 
 const BLOOD_GROUPS = ['O+','O-','A+','A-','B+','B-','AB+','AB-','RH+','RH-','NOT SURE'];
-const STATUSES = ['Ongoing','Confirmed','Rejected'];
+const STATUSES = ['Ongoing','Accepted','Rejected'];
 const REJECTION_REASONS = [
   'Low hemoglobin','High blood pressure','Low blood pressure',
   'Recent illness','Recent surgery','Medication',
@@ -483,7 +483,7 @@ function searchDonors(query) {
 }
 
 function getStats() {
-  const conf = donors.filter(d => d.status === 'Confirmed');
+  const conf = donors.filter(d => d.status === 'Accepted');
   const rej  = donors.filter(d => d.status === 'Rejected');
   const ong  = donors.filter(d => d.status === 'Ongoing' || !d.status);
   const bg = {};
@@ -560,7 +560,7 @@ function normalizeGender(v) {
 
 function normalizeStatus(v) {
   const s = norm(v);
-  if (s.includes('confirm')||s.includes('accept')||s==='donated') return 'Confirmed';
+  if (s.includes('confirm')||s.includes('accept')||s==='donated') return 'Accepted';
   if (s.includes('reject')) return 'Rejected';
   return 'Ongoing';
 }
@@ -698,7 +698,7 @@ function renderDashboard() {
 
   <div class="stat-grid">
     <div class="stat-card total"><div class="stat-num">${s.total}</div><div class="stat-label">&#9829; Total Donors</div></div>
-    <div class="stat-card confirmed"><div class="stat-num">${s.conf.length}</div><div class="stat-label">&#10003; Confirmed</div></div>
+    <div class="stat-card Accepted"><div class="stat-num">${s.conf.length}</div><div class="stat-label">&#10003; Accepted</div></div>
     <div class="stat-card rejected"><div class="stat-num">${s.rej.length}</div><div class="stat-label">&#10007; Rejected</div></div>
     <div class="stat-card ongoing"><div class="stat-num">${s.ong.length}</div><div class="stat-label">&#8987; Ongoing</div></div>
     <div class="stat-card male"><div class="stat-num">${s.mT}</div><div class="stat-label">&#9794; Male</div></div>
@@ -708,7 +708,7 @@ function renderDashboard() {
   <div class="chart-section">
     <div class="card">
       <div class="card-title">By Status &amp; Gender</div>
-      ${[['Confirmed M',s.cM,'#1d4ed8'],['Confirmed F',s.cF,'#7e22ce'],
+      ${[['Accepted M',s.cM,'#1d4ed8'],['Accepted F',s.cF,'#7e22ce'],
          ['Rejected M',s.rM,'#b45309'],['Rejected F',s.rF,'#d97706'],
          ['Ongoing M',s.oM,'#15803d'],['Ongoing F',s.oF,'#0369a1']].map(([l,v,c])=>`
       <div class="bar-row">
@@ -805,7 +805,7 @@ function renderUpdatePanel() {
 
     <div style="font-size:0.72rem;font-weight:700;color:var(--slate-mid);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:9px">Update Donor Status</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-success" onclick="updateStatus(${d.id},'Confirmed','')">&#10003; Confirmed — Blood Donated</button>
+      <button class="btn btn-success" onclick="updateStatus(${d.id},'Accepted','')">&#10003; Accepted — Blood Donated</button>
       <button class="btn btn-danger" onclick="showRejectPanel()">&#10007; Mark as Rejected</button>
       <button class="btn btn-blue" onclick="updateStatus(${d.id},'Ongoing','')">&#8987; Keep as Ongoing</button>
     </div>
@@ -966,7 +966,7 @@ function renderHourly() {
         <thead>
           <tr>
             <th>Time Slot</th><th>New Arrivals</th><th>Cumulative Total</th>
-            <th style="color:var(--green)">Confirmed &#10003;</th>
+            <th style="color:var(--green)">Accepted &#10003;</th>
             <th style="color:var(--amber)">Rejected &#10007;</th>
             <th style="color:var(--blue)">Ongoing &#8987;</th>
           </tr>
@@ -981,7 +981,7 @@ function renderHourly() {
               <td style="font-weight:700${isA?';color:var(--red)':''}">${label}${isA?' &#128994;':''}</td>
               <td>${hd.length}</td>
               <td style="font-weight:800">${running}</td>
-              <td style="color:var(--green);font-weight:600">${hd.filter(d=>d.status==='Confirmed').length}</td>
+              <td style="color:var(--green);font-weight:600">${hd.filter(d=>d.status==='Accepted').length}</td>
               <td style="color:var(--amber);font-weight:600">${hd.filter(d=>d.status==='Rejected').length}</td>
               <td style="color:var(--blue);font-weight:600">${hd.filter(d=>(!d.status||d.status==='Ongoing')).length}</td>
             </tr>`;
@@ -1409,11 +1409,11 @@ function copyReport() {
   const h = new Date().getHours();
   const t = `*Blood Donation Camp Status Update*\nAs of ${String(h).padStart(2,'0')}:00\n\n` +
     `Total Visitors: ${donors.length}\n` +
-    `✅ Confirmed (Blood Donated): ${s.conf.length}\n` +
+    `✅ Accepted (Blood Donated): ${s.conf.length}\n` +
     `❌ Rejected: ${s.rej.length}\n` +
     `⏳ Ongoing: ${s.ong.length}\n\n` +
     `👨 Male Donors: ${s.mT}  |  👩 Female Donors: ${s.fT}\n` +
-    `✅ Confirmed Male: ${s.cM}  |  Confirmed Female: ${s.cF}`;
+    `✅ Accepted Male: ${s.cM}  |  Accepted Female: ${s.cF}`;
   navigator.clipboard.writeText(t).then(() => showToast('&#10003; Report copied to clipboard!'));
 }
 

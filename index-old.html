@@ -346,10 +346,13 @@ async function loadFromSheet() {
     const resp = await fetch(CONFIG.APPS_SCRIPT_URL);
     const data = await resp.json();
     if (data.donors) {
-      // Normalize: convert Google Sheet column names to app property names
+      // Merge: sheet is source of truth; local additions not yet saved get appended
       const sheetIds = new Set(data.donors.map(d => String(d.id)));
       const localOnly = donors.filter(d => !sheetIds.has(String(d.id)));
-      donors = data.donors.map(d => normalizeSheetDonor(d));
+      donors = data.donors.map(d => ({
+        ...d,
+        addedAt: d.addedAt ? new Date(d.addedAt) : new Date()
+      }));
       donors = donors.concat(localOnly);
       nextId = Math.max(0, ...donors.map(d => Number(d.id) || 0)) + 1;
       setSyncState('ok');
@@ -360,31 +363,6 @@ async function loadFromSheet() {
     setSyncState('error');
     showToast('&#9888; Could not load from Google Sheets: ' + e.message);
   }
-}
-
-/**
- * Convert Google Sheet column names to app property names
- * Sheet columns: "First Name", "Mobile No.", "Group", etc.
- * App properties: firstName, mobile, bloodGroup, etc.
- */
-function normalizeSheetDonor(sheetDonor) {
-  return {
-    id: sheetDonor.id || sheetDonor.ID || 0,
-    firstName: sheetDonor['First Name'] || '',
-    middleName: sheetDonor['Middle Name'] || '',
-    lastName: sheetDonor['Last Name'] || '',
-    mobile: sheetDonor['Mobile No.'] || '',
-    address: sheetDonor['Address'] || '',
-    upasnaKendra: sheetDonor['Upasna Kendra'] || '',
-    bloodGroup: sheetDonor['Group'] || '',
-    newOld: sheetDonor['New/Old Shraddhavan'] || '',
-    age: sheetDonor['Age'] || '',
-    dob: sheetDonor['Date of Birth'] || '',
-    gender: sheetDonor['Gender'] || '',
-    status: sheetDonor['Status'] || 'Ongoing',
-    rejectionReason: sheetDonor['Reasons for rejection'] || '',
-    addedAt: sheetDonor.addedAt ? new Date(sheetDonor.addedAt) : new Date()
-  };
 }
 
 async function saveToSheet(action, donor) {
